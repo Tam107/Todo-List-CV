@@ -11,6 +11,7 @@ import org.todoapp.dto.CategoryDto;
 import org.todoapp.exception.InvalidEntityException;
 import org.todoapp.repositories.CategoryRepository;
 import org.todoapp.services.CategoryService;
+import org.todoapp.validators.CategoryValidator;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -28,10 +29,9 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CategoryDto save(CategoryDto categoryDto) {
-        List<String> errors = new ArrayList<>();
+        List<String> errors = CategoryValidator.validatorCategory(categoryDto);
         if(!errors.isEmpty()){
             log.error("Category is not valid {}", categoryDto);
-            throw new InvalidEntityException("Category is not valid");
         }
         return CategoryDto.fromEntity(categoryRepository.save(CategoryDto.toEntity(categoryDto)));
     }
