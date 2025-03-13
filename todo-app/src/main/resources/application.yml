@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: todo-app
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/test_tododb
+    username: springstudent
+    password: springstudent
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    database: MYSQL
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate.dialect: org.hibernate.dialect.MySQLDialect
+
+  security:
+    user:
+      name: tam
+      password: 123
+
+  server:
+    port: 8080
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  openapi:
+    service:
+      api-docs: todo-app
+      title: Todo Application API
+      version: 1.0.0
+    server: http://localhost:${server.port}
+
+#firebase:
+#  bucket-name: todo-list-1ca8b.appspot.com
+#  image-url: https://storage.googleapis.com
+
+jwt:
+  secret-key: afe65bcd93be0f27d04415f68b9b6ca33f909553ad54c3966cd719a7e44606c1
+  expiration: 86400000
+  refresh-expiration: 604800000
