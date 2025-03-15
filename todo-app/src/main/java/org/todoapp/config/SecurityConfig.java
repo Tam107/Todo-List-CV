@@ -1,5 +1,6 @@
 package org.todoapp.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.todoapp.dto.response.ApiResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -41,15 +43,19 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .logout((logout)-> logout.logoutUrl("/api/v1/auth/logout")
+                .logout((logout)-> logout.logoutUrl("/api/auth/logout")
                         .addLogoutHandler(logoutHandler)
                         .logoutSuccessHandler(((request, response, authentication) -> {
                             SecurityContextHolder.clearContext();
 
+                            // API response for logout
+                            ApiResponse apiResponse = new ApiResponse(200, "Logout successful", null);
+
+                            ObjectMapper objectMapper = new ObjectMapper();
                             response.setContentType("application/json");
                             response.setCharacterEncoding("UTF-8");
                             response.setStatus(HttpServletResponse.SC_OK);
-                            response.getWriter().write("{\"message\": \"Logout successfully\"} ");
+                            response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
                         })))
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(jwtAuthEntryPoint)
                 )

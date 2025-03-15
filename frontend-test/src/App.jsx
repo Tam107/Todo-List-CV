@@ -4,6 +4,7 @@ import Register from './pages/Register';
 // import Tasks from './pages/Tasks';
 // import Profile from './pages/Profile';
 import { isAuthenticated } from './services/authService';
+import Tasks from "./pages/Tasks.jsx";
 
 const ProtectedRoute = ({ children }) => {
     return isAuthenticated() ? children : <Navigate to="/login" />;
@@ -19,7 +20,7 @@ const App = () => {
                     path="/tasks"
                     element={
                         <ProtectedRoute>
-                            {/*<Tasks />*/}
+                            <Tasks/>
                         </ProtectedRoute>
                     }
                 />

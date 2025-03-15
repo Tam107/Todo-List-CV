@@ -41,4 +41,9 @@ public class TaskDetails {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    @Override
+    public String toString() {
+        return "TaskDetails(id=" + id + ", title=" + title + ", startDate=" + startDate + ", endDate=" + endDate + ")";
+    }
 }

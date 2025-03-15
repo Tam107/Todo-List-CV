@@ -22,6 +22,7 @@ import java.io.IOException;
 
 @Slf4j(topic = "JWT-AUTHENTICATION-FILTER")
 @Component
+@RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -30,13 +31,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     // implement token repository to check valid token
     private final TokenRepository tokenRepository;
 
-    @Autowired
-    public JwtAuthFilter(JwtService jwtService, UserDetailsService userDetailsService, TokenRepository tokenRepository) {
-        this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
-        this.tokenRepository = tokenRepository;
-        log.info("JwtService injected: {}", jwtService != null);
-    }
+
 
     @Override
     protected void doFilterInternal(

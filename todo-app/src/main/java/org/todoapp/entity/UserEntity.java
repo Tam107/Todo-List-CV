@@ -78,6 +78,11 @@ public class UserEntity implements UserDetails {
         return true;
     }
 
+    // Override toString to avoid circular reference
+    @Override
+    public String toString() {
+        return "UserEntity(id=" + id + ", username=" + username + ", email=" + email + ")";
+    }
 //    @UpdateTimestamp
 //    private LocalDateTime updatedAt;
 }
