@@ -9,6 +9,8 @@ import org.todoapp.dto.request.LoginRequest;
 import org.todoapp.dto.request.RegisterRequest;
 import org.todoapp.service.AuthService;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -25,6 +27,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(new ApiResponse(200, "Login successful",
                 authService.login(request)));
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse> refreshToken(@RequestBody Map<String, String> request){
+        String refreshToken = request.get("refresh_token");
+        return ResponseEntity.ok(new ApiResponse(200, "Token refreshed successfully", authService.refreshToken(refreshToken)));
     }
 
     @PostMapping("/logout")

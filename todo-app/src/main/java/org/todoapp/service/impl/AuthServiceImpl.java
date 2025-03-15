@@ -7,6 +7,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +20,7 @@ import org.todoapp.dto.response.AuthResponse;
 import org.todoapp.entity.Token;
 import org.todoapp.entity.UserEntity;
 import org.todoapp.exception.BadRequestException;
+import org.todoapp.exception.ResourceNotFoundException;
 import org.todoapp.repository.TokenRepository;
 import org.todoapp.repository.UserRepository;
 import org.todoapp.service.AuthService;
@@ -62,11 +65,12 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+
     protected void savedUserToken(UserEntity savedUser, String accessToken, String refreshToken) {
         var token = Token.builder()
                 .user(savedUser)
                 .token(accessToken)
-                .refresh_token(refreshToken)
+                .refreshToken(refreshToken)
                 .tokenType(TokenType.BEARER)
                 .revoked(false)
                 .expired(false)
@@ -97,6 +101,38 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @SneakyThrows
+    @Override
+    public AuthResponse refreshToken(String refreshToken) {
+        // validate refresh token
+        String userEmail = jwtService.extractUsername(refreshToken);
+        if (userEmail == null || !jwtService.isTokenValid(refreshToken, loadUserByUsername(userEmail))){
+            throw new BadRequestException("Invalid or expired refresh token");
+        }
+
+        UserEntity user = userRepository.findByEmail(userEmail)
+                .orElseThrow(()-> new ResourceNotFoundException("User not found"));
+        // check if the refresh token exists and is valid in the database
+        Token storedToken = tokenRepository.findByRefreshToken(refreshToken)
+                .filter(token -> !token.isExpired() && !token.isRevoked())
+                .orElseThrow(() -> new BadRequestException("Refresh token not valid"));
+
+        // generate new access and refresh tokens
+        String newAccessToken = jwtService.generateToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user);
+
+        // revoke the old token
+        storedToken.setExpired(true);
+        storedToken.setRevoked(true);
+        savedUserToken(user, newAccessToken, newRefreshToken);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken).build();
+    }
+
+
+
     private void revokeAllUserToken(UserEntity user) {
         var validUserToken = tokenRepository.findAllValidTokensByUser(user.getId());
         if (validUserToken.isEmpty()){
@@ -109,6 +145,19 @@ public class AuthServiceImpl implements AuthService {
         });
         tokenRepository.saveAll(validUserToken);
 
+    }
+
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // Retrieve user from the database
+        UserEntity user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
+
+        // Return user without roles
+        return new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPassword(),
+                user.getAuthorities() // This will return an empty list or default authority
+        );
     }
 
     @Override

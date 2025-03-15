@@ -21,7 +21,8 @@ public class Token {
 
     private String token;
 
-    private String refresh_token;
+    @Column(name = "refresh_token")
+    private String refreshToken;
 
     @Enumerated(EnumType.STRING)
     private TokenType tokenType;
