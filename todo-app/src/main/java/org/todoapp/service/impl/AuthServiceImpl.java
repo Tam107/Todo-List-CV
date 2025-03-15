@@ -21,6 +21,7 @@ import org.todoapp.entity.Token;
 import org.todoapp.entity.UserEntity;
 import org.todoapp.exception.BadRequestException;
 import org.todoapp.exception.ResourceNotFoundException;
+import org.todoapp.exception.UserAlreadyExistsException;
 import org.todoapp.repository.TokenRepository;
 import org.todoapp.repository.UserRepository;
 import org.todoapp.service.AuthService;
@@ -44,7 +45,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("Email is already in use");
+            throw new UserAlreadyExistsException("Email is already in use");
         }
 
         var user = UserEntity.builder()
@@ -107,7 +108,7 @@ public class AuthServiceImpl implements AuthService {
         // validate refresh token
         String userEmail = jwtService.extractUsername(refreshToken);
         if (userEmail == null || !jwtService.isTokenValid(refreshToken, loadUserByUsername(userEmail))){
-            throw new BadRequestException("Invalid or expired refresh token");
+            throw new ResourceNotFoundException("Invalid or expired refresh token");
         }
 
         UserEntity user = userRepository.findByEmail(userEmail)
@@ -115,7 +116,7 @@ public class AuthServiceImpl implements AuthService {
         // check if the refresh token exists and is valid in the database
         Token storedToken = tokenRepository.findByRefreshToken(refreshToken)
                 .filter(token -> !token.isExpired() && !token.isRevoked())
-                .orElseThrow(() -> new BadRequestException("Refresh token not valid"));
+                .orElseThrow(() -> new ResourceNotFoundException("Refresh token not valid"));
 
         // generate new access and refresh tokens
         String newAccessToken = jwtService.generateToken(user);

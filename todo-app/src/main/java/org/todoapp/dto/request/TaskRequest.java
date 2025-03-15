@@ -14,11 +14,9 @@ public class TaskRequest {
 
     private String description;
 
-    @NotNull(message = "Start date is required")
     private Date startDate;
 
-    @NotNull(message = "End date is required")
     private Date endDate;
 
-    private TaskStatus status = TaskStatus.DOING;
+    private TaskStatus status;
 }

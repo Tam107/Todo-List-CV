@@ -10,13 +10,13 @@ client/
 │   ├── pages/
 │   │   ├── Login.jsx       # Login page
 │   │   ├── Register.jsx    # Register page
-│   │   ├── Tasks.jsx       # Task list page
+│   │   ├── Tasks.jsx       # Tasks list page
 │   │   ├── Profile.jsx     # Profile page
 │   │   └── index.js        # Barrel export for pages
 │   ├── services/           # API calls to backend
 │   │   ├── api.js          # Axios config (base URL, interceptors)
 │   │   ├── authService.js  # Auth API calls
-│   │   ├── taskService.js  # Task API calls
+│   │   ├── taskService.js  # Tasks API calls
 │   │   ├── userService.js  # User profile API calls
 │   │   └── index.js        # Barrel export for services
 │   ├── App.jsx             # Root component with routing
@@ -135,7 +135,7 @@ export const isAuthenticated = () => !!localStorage.getItem('access_token');
 
 ---
 
-### Step 3: Task Service (`taskService.js`)
+### Step 3: Tasks Service (`taskService.js`)
 Your `TaskServiceImpl` handles task CRUD operations. Let’s assume endpoints like `/api/tasks` (adjust based on your actual `TaskController`).
 
 #### Implemented Code: `src/services/taskService.js`
@@ -400,9 +400,496 @@ Update `package.json` by removing:
 Run `npm uninstall @reduxjs/toolkit react-redux redux`.
 
 ---
+Let’s compare your former and new backend versions of `TaskServiceImpl.getAllTasks`, analyze their differences, draw a conclusion, and then re-guide you through the frontend task implementation from scratch, aligned with the new backend.
 
-### Next Steps
-- Implement `Tasks.jsx`, `TaskItem.jsx`, and `TaskForm.jsx` using local state or Context for task management.
-- Add `/api/auth/refresh` to your backend (as discussed earlier) to support the interceptor.
+---
 
-What do you think of this structure? Would you like to focus on `Tasks.jsx` next to fetch and display tasks? How do you feel about managing state without Redux so far? Let me know your thoughts!
+### Comparison: Former vs. New Backend
+
+#### Former Backend (`TaskServiceImpl.getAllTasks`)
+```java
+@Override
+public Page<?> getAllTasks(String keyword, int page, int size, String sortBy, String direction) {
+    UserEntity currentUser = getCurrentUser();
+    Sort.Direction sort = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+    Pageable pageable = PageRequest.of(page, size, sort);
+
+    if (keyword != null && !keyword.isEmpty()) {
+        return taskRepository.findByUserAndTitleContainingIgnoreCase(currentUser, keyword, pageable)
+                .map(this::mapToTaskResponse);
+    }
+    return taskRepository.findByUser(currentUser, pageable)
+            .map(this::mapToTaskResponse);
+}
+```
+
+#### New Backend (`TaskServiceImpl.getAllTasks`)
+```java
+@Override
+public PageResponse<TaskResponse> getAllTasks(String keyword, int page, int size, String sortBy, String direction) {
+    Sort.Direction sort = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+    Sort sortByField = Sort.by(sort, sortBy != null ? sortBy : "startDate");
+    Pageable pageable = PageRequest.of(page, size, sortByField);
+
+    Page<TaskDetails> taskPage;
+    if (keyword != null && !keyword.isEmpty()) {
+        taskPage = taskRepository.findByTitleContainingIgnoreCase(keyword, pageable);
+    } else {
+        taskPage = taskRepository.findAll(pageable);
+    }
+
+    List<TaskResponse> taskResponses = taskPage.getContent().stream()
+            .map(this::mapToTaskResponse)
+            .collect(Collectors.toList());
+
+    return new PageResponse<>(
+            taskResponses,
+            taskPage.getTotalElements(),
+            taskPage.getTotalPages(),
+            taskPage.getNumber()
+    );
+}
+```
+
+#### Key Differences
+1. **Return Type**:
+   - **Former**: `Page<?>`, with `TaskDetails` mapped to `TaskResponse` inline via `.map(this::mapToTaskResponse)`.
+   - **New**: `PageResponse<TaskResponse>`, a custom DTO with explicit fields (`content`, `totalElements`, `totalPages`, `currentPage`).
+   - **Impact**: Former relies on Spring Data’s `Page` serialization; new provides a custom structure, potentially more flexible but requires manual mapping.
+
+2. **User Filtering**:
+   - **Former**: Always filters by `currentUser` using `findByUser` or `findByUserAndTitleContainingIgnoreCase`.
+   - **New**: No user filtering—uses `findAll` or `findByTitleContainingIgnoreCase`, fetching tasks across all users.
+   - **Impact**: Former ensures user-specific tasks; new exposes all tasks, which may be a bug unless intentional (e.g., for admin use).
+
+3. **Sorting**:
+   - **Former**: `Pageable` with `sort` applied generically, no default field specified.
+   - **New**: Explicitly defaults to `startDate` if `sortBy` is null via `Sort.by(sort, sortBy != null ? sortBy : "startDate")`.
+   - **Impact**: New is more robust against null `sortBy`, but both handle sorting correctly if `sortBy` is valid.
+
+4. **Mapping**:
+   - **Former**: Maps `TaskDetails` to `TaskResponse` within the `Page` using `.map()`, preserving pagination structure.
+   - **New**: Extracts `content`, maps to `TaskResponse`, and builds `PageResponse` manually.
+   - **Impact**: Former leverages `Page`’s built-in mapping; new duplicates pagination metadata, slightly less efficient but more explicit.
+
+5. **Error Cause**:
+   - **Former**: Worked fine because `TaskResponse` excluded `user`, avoiding proxy issues.
+   - **New**: Initially failed due to `PageResponse<TaskDetails>` including `user` proxies; fixed version uses `TaskResponse`.
+
+#### Performance
+- **Former**: Single DB query, maps in-stream, returns `Page` directly—efficient for pagination.
+- **New**: Single DB query, maps to list, constructs `PageResponse`—minor overhead from list creation and manual pagination metadata.
+- **Proof**: Both fetch `size` rows (e.g., 10), but new’s `stream().collect()` adds a small in-memory step (negligible for small pages).
+
+#### Correctness
+- **Former**: Correct for user-specific tasks, no serialization issues.
+- **New**: Incorrect without user filtering (unless intended); fixed version restores correctness.
+
+---
+
+### Conclusion
+- **Former Version**:
+  - **Pros**: User-specific, efficient, no serialization issues, leverages Spring Data’s `Page`.
+  - **Cons**: Less explicit control over pagination structure, relies on Spring’s serialization defaults.
+- **New Version (Fixed)**:
+  - **Pros**: Explicit `PageResponse` structure, flexible for custom responses, defaults `sortBy` to `startDate`.
+  - **Cons**: Lost user filtering (fixed now), slight overhead from manual mapping, duplicates `Page` functionality.
+- **Winner**: The **former version** was simpler and more efficient for your use case (user-specific task listing), but the **fixed new version** is equally correct and offers more response control. Choose the new version if you value the custom `PageResponse` structure; revert to the former if simplicity and Spring Data integration are priorities.
+
+**Recommendation**: Stick with the **fixed new version** (with user filtering restored) since it aligns with your latest intent and provides a clear, custom response format.
+
+---
+
+### Re-Guiding Frontend Task Implementation with New Backend
+
+Assuming you’re using the fixed new backend (`PageResponse<TaskResponse>` with user filtering), here’s the frontend task implementation from scratch:
+
+#### Frontend Structure
+```
+client/
+├── public/
+│   ├── index.html
+│   └── favicon.ico
+├── src/
+│   ├── components/
+│   │   ├── TaskItem.jsx
+│   │   ├── TaskForm.jsx
+│   │   └── index.js
+│   ├── pages/
+│   │   ├── Login.jsx
+│   │   ├── Register.jsx
+│   │   ├── Tasks.jsx
+│   │   ├── Profile.jsx
+│   │   └── index.js
+│   ├── services/
+│   │   ├── api.js
+│   │   ├── authService.js
+│   │   ├── taskService.js
+│   │   ├── userService.js
+│   │   └── index.js
+│   ├── validate/
+│   │   └── passwordValidation.js
+│   ├── App.jsx
+│   ├── index.css
+│   └── main.jsx
+```
+
+#### 1. `main.jsx`
+```javascript
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.jsx';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+        <App />
+    </React.StrictMode>
+);
+```
+
+#### 2. `App.jsx`
+```javascript
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Tasks from './pages/Tasks';
+import Profile from './pages/Profile';
+import { isAuthenticated } from './services/authService';
+
+const ProtectedRoute = ({ children }) => {
+    return isAuthenticated() ? children : <Navigate to="/login" />;
+};
+
+const App = () => {
+    return (
+        <Router>
+            <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/" element={<Navigate to="/tasks" />} />
+            </Routes>
+        </Router>
+    );
+};
+
+export default App;
+```
+
+#### 3. `taskService.js`
+```javascript
+import api from './api';
+
+export const getTasks = async (keyword = '', page = 0, size = 10, sortBy = 'startDate', direction = 'desc') => {
+    const response = await api.get('/api/tasks', {
+        params: { keyword, page, size, sortBy, direction },
+    });
+    return response.data.data; // PageResponse<TaskResponse>
+};
+
+export const createTask = async (task) => {
+    const response = await api.post('/api/tasks', task);
+    return response.data.data;
+};
+
+export const updateTask = async (id, task) => {
+    const response = await api.put(`/api/tasks/${id}`, task);
+    return response.data.data;
+};
+
+export const deleteTask = async (id) => {
+    await api.delete(`/api/tasks/${id}`);
+};
+```
+
+#### 4. `TaskItem.jsx`
+```javascript
+const TaskItem = ({ task, onEdit, onDelete }) => {
+    return (
+        <div className="flex justify-between items-center p-4 bg-white rounded-md shadow-md mb-2">
+            <div>
+                <h3 className="text-lg font-semibold">{task.title}</h3>
+                <p className="text-gray-600">{task.description || 'No description'}</p>
+                <p className="text-sm text-gray-500">Status: {task.status}</p>
+                <p className="text-sm text-gray-500">Start: {task.startDate || 'Not set'}</p>
+                <p className="text-sm text-gray-500">End: {task.endDate || 'Not set'}</p>
+            </div>
+            <div className="space-x-2">
+                <button
+                    onClick={() => onEdit(task)}
+                    className="px-3 py-1 bg-blue-400 text-white rounded-md hover:bg-blue-600"
+                >
+                    Edit
+                </button>
+                <button
+                    onClick={() => onDelete(task.id)}
+                    className="px-3 py-1 bg-red-400 text-white rounded-md hover:bg-red-600"
+                >
+                    Delete
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export default TaskItem;
+```
+
+#### 5. `TaskForm.jsx`
+```javascript
+import { useState } from 'react';
+
+const TaskForm = ({ initialTask = {}, onSubmit, onCancel }) => {
+    const [title, setTitle] = useState(initialTask.title || '');
+    const [description, setDescription] = useState(initialTask.description || '');
+    const [status, setStatus] = useState(initialTask.status || 'TODO');
+    const [startDate, setStartDate] = useState(initialTask.startDate || '');
+    const [endDate, setEndDate] = useState(initialTask.endDate || '');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const task = { title, description, status, startDate, endDate };
+        onSubmit(task);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="p-4 bg-gray-100 rounded-md shadow-md mb-4">
+            <h3 className="text-lg font-bold mb-4">{initialTask.id ? 'Edit Task' : 'Add Task'}</h3>
+            <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Task Title"
+                className="w-full border-gray-300 rounded-md mb-2"
+                required
+            />
+            <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Description"
+                className="w-full border-gray-300 rounded-md mb-2"
+            />
+            <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full border-gray-300 rounded-md mb-2"
+            >
+                <option value="TODO">To Do</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="DONE">Done</option>
+            </select>
+            <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full border-gray-300 rounded-md mb-2"
+            />
+            <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full border-gray-300 rounded-md mb-2"
+            />
+            <div className="flex space-x-2">
+                <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-400 text-white rounded-md hover:bg-blue-600"
+                >
+                    Save
+                </button>
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-600"
+                >
+                    Cancel
+                </button>
+            </div>
+        </form>
+    );
+};
+
+export default TaskForm;
+```
+
+#### 6. `Tasks.jsx`
+```javascript
+import { useState, useEffect } from 'react';
+import { getTasks, createTask, updateTask, deleteTask } from '../services/taskService';
+import TaskItem from '../components/TaskItem';
+import TaskForm from '../components/TaskForm';
+import { logout } from '../services/authService';
+import { useNavigate } from 'react-router-dom';
+
+const Tasks = () => {
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [editingTask, setEditingTask] = useState(null);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        fetchTasks(currentPage);
+    }, [currentPage]);
+
+    const fetchTasks = async (page) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const taskData = await getTasks('', page);
+            setTasks(taskData.content);
+            setTotalPages(taskData.totalPages);
+            setCurrentPage(taskData.currentPage);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to load tasks');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateOrUpdate = async (task) => {
+        setLoading(true);
+        setError(null);
+        try {
+            if (editingTask) {
+                const updatedTask = await updateTask(editingTask.id, task);
+                setTasks(tasks.map(t => (t.id === updatedTask.id ? updatedTask : t)));
+                setEditingTask(null);
+            } else {
+                const newTask = await createTask(task);
+                setTasks([...tasks, newTask]);
+                fetchTasks(currentPage); // Refresh to ensure pagination consistency
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to save task');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+            await deleteTask(id);
+            setTasks(tasks.filter(t => t.id !== id));
+            fetchTasks(currentPage); // Refresh to adjust pagination
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to delete task');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEdit = (task) => {
+        setEditingTask(task);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingTask(null);
+    };
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/login');
+        } catch (err) {
+            setError('Failed to logout');
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-200 p-6">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">My Tasks</h2>
+                <button
+                    onClick={handleLogout}
+                    className="px-4 py-2 bg-red-400 text-white rounded-md hover:bg-red-600"
+                >
+                    Logout
+                </button>
+            </div>
+            {error && (
+                <p className="text-red-500 text-center bg-red-100 rounded-md p-2 mb-4">{error}</p>
+            )}
+            {loading && <p className="text-center">Loading...</p>}
+            <TaskForm onSubmit={handleCreateOrUpdate} onCancel={handleCancelEdit} initialTask={editingTask || {}} />
+            <div className="space-y-4">
+                {tasks.length === 0 && !loading ? (
+                    <p className="text-center text-gray-500">No tasks yet. Add one above!</p>
+                ) : (
+                    tasks.map(task => (
+                        <TaskItem
+                            key={task.id}
+                            task={task}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
+                    ))
+                )}
+            </div>
+            {totalPages > 1 && (
+                <div className="flex justify-center mt-4 space-x-2">
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+                        disabled={currentPage === 0}
+                        className="px-4 py-2 bg-blue-400 text-white rounded-md disabled:bg-gray-400"
+                    >
+                        Previous
+                    </button>
+                    <span>Page {currentPage + 1} of {totalPages}</span>
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages - 1))}
+                        disabled={currentPage >= totalPages - 1}
+                        className="px-4 py-2 bg-blue-400 text-white rounded-md disabled:bg-gray-400"
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Tasks;
+```
+
+#### 7. `index.css`
+```css
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f0f0f0;
+}
+
+input, textarea, select, button {
+    padding: 8px;
+    font-size: 14px;
+}
+```
+
+---
+
+### Verification
+- **Response**: `GET /api/tasks` returns `PageResponse<TaskResponse>`:
+  ```json
+  {
+      "status": 200,
+      "message": "Tasks retrieved successfully",
+      "data": {
+          "content": [{ "id": 1, "title": "Task 1", ... }],
+          "totalElements": 5,
+          "totalPages": 1,
+          "currentPage": 0
+      }
+  }
+  ```
+- **Frontend**: `Tasks.jsx` fetches, displays, and manages tasks with pagination.
+- **Test**: Login → Add task → Edit → Delete → Navigate pages → All work without errors.
+
+This frontend aligns perfectly with your new backend’s `PageResponse` structure and user-specific filtering. Let me know if you need further refinements!

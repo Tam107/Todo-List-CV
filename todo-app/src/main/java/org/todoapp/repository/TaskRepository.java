@@ -19,16 +19,14 @@ public interface TaskRepository extends JpaRepository<TaskDetails, Long> {
 
     Page<TaskDetails> findAll(Pageable pageable);
 
-//    List<TaskDetails> findByUsername(String username);
-
+    @Query("SELECT t FROM TaskDetails t WHERE t.user = :user")
     Page<TaskDetails> findByUser(UserEntity user, Pageable pageable);
 
     Page<TaskDetails> findByUserAndTitleContainingIgnoreCase(UserEntity user, String keyword, Pageable pageable);
 
-    long countByUser(UserEntity user);
 
-    @Modifying
-    @Query("delete from TaskDetails t where t.user = :user")
-    void deleteByUser(@Param("user") UserEntity user);
+//    @Modifying
+//    @Query("delete from TaskDetails t where t.user = :user")
+//    void deleteByUser(@Param("user") UserEntity user);
 
 }

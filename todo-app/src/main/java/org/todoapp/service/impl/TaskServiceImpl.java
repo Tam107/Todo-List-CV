@@ -2,13 +2,16 @@ package org.todoapp.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.todoapp.common.TaskStatus;
 import org.todoapp.dto.request.TaskRequest;
+import org.todoapp.dto.response.PageResponse;
 import org.todoapp.dto.response.TaskResponse;
 import org.todoapp.entity.TaskDetails;
 import org.todoapp.entity.UserEntity;
@@ -17,6 +20,10 @@ import org.todoapp.repository.TaskRepository;
 import org.todoapp.repository.UserRepository;
 import org.todoapp.service.TaskService;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j(topic = "TASK-SERVICE")
 @Service
 @RequiredArgsConstructor
 public class TaskServiceImpl implements TaskService {
@@ -24,17 +31,26 @@ public class TaskServiceImpl implements TaskService {
     private final UserRepository userRepository;
 
     @Override
-    public Page<?> getAllTasks(String keyword, int page, int size, String sortBy, String direction) {
+    public PageResponse<TaskResponse> getAllTasks(String keyword, int page, int size, String sortBy, String direction) {
+        log.info("Fetching tasks for page: {}, size: {}, sortBy: {}, direction: {}", page, size, sortBy, direction);
         UserEntity currentUser = getCurrentUser();
-        Sort.Direction sort = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(page, size, sort);
 
+        Sort.Direction sort = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sortByField = Sort.by(sort, sortBy != null ? sortBy : "startDate");
+        Pageable pageable = PageRequest.of(page, size, sortByField);
+
+        Page<TaskDetails> taskPage;
         if (keyword != null && !keyword.isEmpty()) {
-            return taskRepository.findByUserAndTitleContainingIgnoreCase(currentUser, keyword, pageable)
-                    .map(this::mapToTaskResponse);
+            taskPage = taskRepository.findByTitleContainingIgnoreCase(keyword, pageable);
+        } else {
+            taskPage = taskRepository.findByUser(currentUser, pageable);
         }
-        return taskRepository.findByUser(currentUser, pageable)
-                .map(this::mapToTaskResponse);
+        log.info("Fetched {} tasks for page {}, total pages: {}", taskPage.getContent().size(), page, taskPage.getTotalPages());
+
+        List<TaskResponse> taskResponses = taskPage.getContent().stream()
+                .map(this::mapToTaskResponse)
+                .collect(Collectors.toList());
+        return new PageResponse<>(taskResponses, taskPage.getTotalElements(), taskPage.getTotalPages(), taskPage.getNumber());
     }
 
     @Override
@@ -45,14 +61,16 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse createTask(TaskRequest request) {
+        log.info("Creating task with request: {}", request);
         UserEntity currentUser = getCurrentUser();
+        log.info("Current user {}", currentUser);
 
         TaskDetails task = TaskDetails.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(request.getStatus())
+                .status(request.getStatus() != null ? request.getStatus() : TaskStatus.PENDING)
                 .user(currentUser)
                 .build();
 
@@ -82,10 +100,10 @@ public class TaskServiceImpl implements TaskService {
     private TaskDetails getTaskById(Long id) {
         UserEntity currentUser = getCurrentUser();
         TaskDetails task = taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Tasks not found"));
 
         if (!task.getUser().getId().equals(currentUser.getId())) {
-            throw new ResourceNotFoundException("Task not found");
+            throw new ResourceNotFoundException("Tasks not found");
         }
         return task;
     }
@@ -105,7 +123,6 @@ public class TaskServiceImpl implements TaskService {
                 .startDate(task.getStartDate())
                 .endDate(task.getEndDate())
                 .status(task.getStatus())
-                .user(task.getUser())
                 .build();
     }
 }

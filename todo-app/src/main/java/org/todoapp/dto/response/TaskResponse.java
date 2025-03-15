@@ -16,5 +16,4 @@ public class TaskResponse {
     private Date startDate;
     private Date endDate;
     private TaskStatus status;
-    private UserEntity user;
 }
