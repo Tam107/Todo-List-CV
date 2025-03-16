@@ -50,10 +50,10 @@ const NavBar = () => {
     };
 
     return (
-        <Disclosure as="nav" className="bg-white shadow-sm rounded-lg">
+        <Disclosure as="nav" className="bg-white shadow-sm rounded-lg w-[85%] mx-auto">
             {({ open }) => (
                 <>
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-4">
                         <div className="flex h-12 justify-between">
                             <div className="flex">
                                 {/* Logo */}

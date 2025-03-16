@@ -27,8 +27,9 @@ const TaskForm = ({ initialTask = {}, onSubmit, onCancel }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="p-4 bg-gray-100 rounded-md shadow-md mb-4">
+        <form onSubmit={handleSubmit} className="p-4 mx-auto bg-white rounded-md shadow-md mb-4 w-[65%]">
             <h3 className="text-lg font-bold mb-4">{initialTask.id ? 'Edit Task' : 'Add Task'}</h3>
+            {error && <p> error={error} </p> }
             <input
                 type="text"
                 value={title}
@@ -50,7 +51,7 @@ const TaskForm = ({ initialTask = {}, onSubmit, onCancel }) => {
             >
                 <option value="PENDING">PENDING</option>
                 <option value="DOING">DOING</option>
-                <option value="DONE">Done</option>
+                <option value="DONE">DONE</option>
             </select>
             <input
                 type="date"

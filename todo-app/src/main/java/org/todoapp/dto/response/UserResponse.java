@@ -14,4 +14,8 @@ public class UserResponse {
     private String password;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public String displayUsername(){
+        return this.username;
+    }
 }

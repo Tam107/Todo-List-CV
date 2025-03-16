@@ -20,7 +20,6 @@ spring:
     user:
       name: tam
       password: 123
-
   server:
     port: 8080
 

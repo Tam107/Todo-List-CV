@@ -69,7 +69,7 @@ const Register = () => {
                         <div className="flex justify-center mt-4 p-3 bg-gray-100 rounded-lg shadow-sm">
                             <p className="text-gray-600">
                                 Already have account?
-                                <Link className="ml-1 text-blue-600 font-medium hover:underline" to="/register">
+                                <Link className="ml-1 text-blue-600 font-medium hover:underline" to="/login">
                                     Login here
                                 </Link>
                             </p>

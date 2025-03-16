@@ -25,7 +25,7 @@ public class UserServiceImpl implements UserService {
         UserEntity user = getCurrentUser();
 
         return UserResponse.builder()
-                .username(user.getUsername())
+                .username(user.displayUsername())
                 .email(user.getEmail())
                 .password(user.getPassword())
                 .createdAt(user.getCreatedAt())
@@ -74,7 +74,7 @@ public class UserServiceImpl implements UserService {
     private UserResponse mapToUserResponse(UserEntity user) {
         return UserResponse.builder()
                 .id(user.getId())
-                .username(user.getUsername())
+                .username(user.displayUsername())
                 .email(user.getEmail())
                 .createdAt(user.getCreatedAt())
                 .build();

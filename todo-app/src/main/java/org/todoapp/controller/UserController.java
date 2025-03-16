@@ -27,14 +27,14 @@ public class UserController {
                 userService.updateProfile(request)));
     }
 
-    @SneakyThrows
-    @PutMapping("/change-password")
-    public ResponseEntity<ApiResponse> changePassword(
-            @RequestParam String oldPassword,
-            @RequestParam String newPassword) {
-        userService.changePassword(oldPassword, newPassword);
-        return ResponseEntity.ok(new ApiResponse(200, "Password changed successfully", null));
-    }
+//    @SneakyThrows
+//    @PutMapping("/change-password")
+//    public ResponseEntity<ApiResponse> changePassword(
+//            @RequestParam String oldPassword,
+//            @RequestParam String newPassword) {
+//        userService.changePassword(oldPassword, newPassword);
+//        return ResponseEntity.ok(new ApiResponse(200, "Password changed successfully", null));
+//    }
 
     @SneakyThrows
     @DeleteMapping("/profile")

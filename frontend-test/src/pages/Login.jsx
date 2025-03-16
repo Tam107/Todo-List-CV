@@ -3,8 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { login } from "../services/authService.js";
 
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('tam@gmail.com');
+    const [password, setPassword] = useState('123456');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
@@ -61,11 +61,11 @@ const Login = () => {
                         {loading ? 'Logging in...' : 'Login'}
                     </button>
                     {/* Forgot Password Link */}
-                    <div className="flex justify-end mt-2">
-                        <Link className="text-sm text-blue-500 hover:underline" to="/change-password">
-                            Forgot password?
-                        </Link>
-                    </div>
+                    {/*<div className="flex justify-end mt-2">*/}
+                    {/*    <Link className="text-sm text-blue-500 hover:underline" to="/change-password">*/}
+                    {/*        Forgot password?*/}
+                    {/*    </Link>*/}
+                    {/*</div>*/}
 
                     {/* Register Section */}
                     <div className="flex justify-center mt-4 p-3 bg-gray-100 rounded-lg shadow-sm">

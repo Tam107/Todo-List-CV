@@ -5,6 +5,7 @@ import Register from './pages/Register';
 // import Profile from './pages/Profile';
 import { isAuthenticated } from './services/authService';
 import Tasks from "./pages/Tasks.jsx";
+import Profile from "./pages/Profile.jsx";
 
 const ProtectedRoute = ({ children }) => {
     return isAuthenticated() ? children : <Navigate to="/login" />;
@@ -28,7 +29,7 @@ const App = () => {
                     path="/profile"
                     element={
                         <ProtectedRoute>
-                            {/*<Profile />*/}
+                            <Profile />
                         </ProtectedRoute>
                     }
                 />
